@@ -42,6 +42,7 @@
 #endif
 
 #include "ccid.h"
+#include "cmdline.h"
 #include "usbstring.h"
 
 #define DRIVER_VENDOR_NUM	0x0D46		/* KOBIL Systems */
@@ -1513,9 +1514,6 @@ main (int argc, char **argv)
     doint = cmdline.interrupt_flag;
     gadgetfs = cmdline.gadgetfs_arg;
 
-
-    if (cmdline.info_flag)
-        return print_avail(verbose);
 
     if (ccid_initialize(cmdline.reader_arg, verbose) < 0) {
         fprintf (stderr, "Can't initialize ccid\n");
