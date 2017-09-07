@@ -18,6 +18,7 @@
  */
 #include <asm/byteorder.h>
 #include <libopensc/errors.h>
+#include <libopensc/log.h>
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -28,9 +29,9 @@
 #include "ccid.h"
 
 // TODO
-#define sc_debug(ctx, level, format, args...) fprintf(stderr, format, ## args)
-#define bin_log(ctx, level, format, args...) fprintf(stderr, format, ## args)
-#define SC_FUNC_RETURN(ctx, level, r) do { return r; } while(0)
+//#define sc_debug(level, format, args...) fprintf(stderr, format, ## args)
+#define bin_log(level, format, args...) fprintf(stderr, format, ## args)
+//#define SC_FUNC_RETURN(level, r) do { return r; } while(0)
 // TODO maybe include pcsc?
 #define SC_PROTO_T0		0x00000001
 #define SC_PROTO_T1		0x00000002
@@ -109,9 +110,9 @@ ccid_desc = {
 #define debug_sc_result(sc_result) \
 { \
     if (sc_result < 0) \
-        sc_debug(ctx, SC_LOG_DEBUG_VERBOSE, sc_strerror(sc_result)); \
+        sc_debug(SC_LOG_DEBUG_VERBOSE, sc_strerror(sc_result)); \
     else \
-        sc_debug(ctx, SC_LOG_DEBUG_NORMAL, sc_strerror(sc_result)); \
+        sc_debug(SC_LOG_DEBUG_NORMAL, sc_strerror(sc_result)); \
 }
 
 int ccid_initialize(int reader_id, int verbose)
@@ -181,33 +182,33 @@ static __u8 get_bStatus(int sc_result)
         if (sc_result < 0) {
             if (flags & SC_READER_CARD_PRESENT) {
                 if (flags & SC_READER_CARD_CHANGED) {
-                    sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "error inactive");
+                    sc_debug(SC_LOG_DEBUG_NORMAL, "error inactive");
                     bstatus = CCID_BSTATUS_ERROR_INACTIVE;
                 } else {
-                    sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "error active");
+                    sc_debug(SC_LOG_DEBUG_NORMAL, "error active");
                     bstatus = CCID_BSTATUS_ERROR_ACTIVE;
                 }
             } else {
-                sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "error no icc");
+                sc_debug(SC_LOG_DEBUG_NORMAL, "error no icc");
                 bstatus = CCID_BSTATUS_ERROR_NOICC;
             }
         } else {
             if (flags & SC_READER_CARD_PRESENT) {
                 if (flags & SC_READER_CARD_CHANGED) {
-                    sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "ok inactive");
+                    sc_debug(SC_LOG_DEBUG_NORMAL, "ok inactive");
                     bstatus = CCID_BSTATUS_OK_INACTIVE;
                 } else {
-                    sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "ok active");
+                    sc_debug(SC_LOG_DEBUG_NORMAL, "ok active");
                     bstatus = CCID_BSTATUS_OK_ACTIVE;
                 }
             } else {
-                sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "ok no icc");
+                sc_debug(SC_LOG_DEBUG_NORMAL, "ok no icc");
                 bstatus = CCID_BSTATUS_OK_NOICC;
             }
         }
     } else {
         debug_sc_result(flags);
-        sc_debug(ctx, SC_LOG_DEBUG_VERBOSE, "Could not detect card presence."
+        sc_debug(SC_LOG_DEBUG_VERBOSE, "Could not detect card presence."
                 " Falling back to default (bStatus=0x%02X).", bstatus);
     }
 
@@ -221,7 +222,7 @@ get_RDR_to_PC_SlotStatus(__u8 bSeq, int sc_result, __u8 **outbuf, size_t *outlen
     if (!outbuf)
         return SC_ERROR_INVALID_ARGUMENTS;
     if (abProtocolDataStructureLen > 0xffff) {
-        sc_debug(ctx, SC_LOG_DEBUG_VERBOSE, "abProtocolDataStructure %u bytes too long",
+        sc_debug(SC_LOG_DEBUG_VERBOSE, "abProtocolDataStructure %u bytes too long",
                 abProtocolDataStructureLen-0xffff);
         return SC_ERROR_INVALID_DATA;
     }
@@ -253,7 +254,7 @@ get_RDR_to_PC_DataBlock(__u8 bSeq, int sc_result, __u8 **outbuf,
     if (!outbuf)
         return SC_ERROR_INVALID_ARGUMENTS;
     if (abDataLen > 0xffff) {
-        sc_debug(ctx, SC_LOG_DEBUG_VERBOSE, "abProtocolDataStructure %u bytes too long",
+        sc_debug(SC_LOG_DEBUG_VERBOSE, "abProtocolDataStructure %u bytes too long",
                 abDataLen-0xffff);
         return SC_ERROR_INVALID_DATA;
     }
@@ -287,7 +288,7 @@ perform_PC_to_RDR_GetSlotStatus(const __u8 *in, size_t inlen, __u8 **out, size_t
         return SC_ERROR_INVALID_ARGUMENTS;
 
     if (inlen < sizeof *request)
-        SC_FUNC_RETURN(ctx, SC_LOG_DEBUG_VERBOSE, SC_ERROR_INVALID_DATA);
+        SC_FUNC_RETURN(SC_LOG_DEBUG_VERBOSE, SC_ERROR_INVALID_DATA);
 
     *outlen = sizeof(RDR_to_PC_SlotStatus_t);
 
@@ -296,7 +297,7 @@ perform_PC_to_RDR_GetSlotStatus(const __u8 *in, size_t inlen, __u8 **out, size_t
             || request->bSlot != 0
             || request->abRFU1 != 0
             || request->abRFU2 != 0)
-        sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "warning: malformed PC_to_RDR_GetSlotStatus");
+        sc_debug(SC_LOG_DEBUG_NORMAL, "warning: malformed PC_to_RDR_GetSlotStatus");
 
     return get_RDR_to_PC_SlotStatus(request->bSeq, SC_SUCCESS,
             out, outlen, NULL, 0);
@@ -312,7 +313,7 @@ perform_PC_to_RDR_IccPowerOn(const __u8 *in, size_t inlen, __u8 **out, size_t *o
         return SC_ERROR_INVALID_ARGUMENTS;
 
     if (inlen < sizeof *request)
-        SC_FUNC_RETURN(ctx, SC_LOG_DEBUG_VERBOSE, SC_ERROR_INVALID_DATA);
+        SC_FUNC_RETURN(SC_LOG_DEBUG_VERBOSE, SC_ERROR_INVALID_DATA);
 
     if (request->bMessageType != 0x62
             || request->dwLength != __constant_cpu_to_le32(0)
@@ -320,9 +321,9 @@ perform_PC_to_RDR_IccPowerOn(const __u8 *in, size_t inlen, __u8 **out, size_t *o
             || !( request->bPowerSelect == 0
                 || request->bPowerSelect & ccid_desc.bVoltageSupport)
             || request->abRFU != 0)
-        sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "warning: malformed PC_to_RDR_IccPowerOn");
+        sc_debug(SC_LOG_DEBUG_NORMAL, "warning: malformed PC_to_RDR_IccPowerOn");
 
-    sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "Card is already powered on.");
+    sc_debug(SC_LOG_DEBUG_NORMAL, "Card is already powered on.");
 
     if (sc_result >= 0) {
         return get_RDR_to_PC_SlotStatus(request->bSeq,
@@ -330,7 +331,7 @@ perform_PC_to_RDR_IccPowerOn(const __u8 *in, size_t inlen, __u8 **out, size_t *o
                 //sc_result, out, outlen, card->atr.value, card->atr.len);
                 sc_result, out, outlen, NULL, 0);
     } else {
-        sc_debug(ctx, SC_LOG_DEBUG_VERBOSE, "Returning default status package.");
+        sc_debug(SC_LOG_DEBUG_VERBOSE, "Returning default status package.");
         return get_RDR_to_PC_SlotStatus(request->bSeq,
                 sc_result, out, outlen, NULL, 0);
     }
@@ -346,14 +347,14 @@ perform_PC_to_RDR_IccPowerOff(const __u8 *in, size_t inlen, __u8 **out, size_t *
         return SC_ERROR_INVALID_ARGUMENTS;
 
     if (inlen < sizeof *request)
-        SC_FUNC_RETURN(ctx, SC_LOG_DEBUG_VERBOSE, SC_ERROR_INVALID_DATA);
+        SC_FUNC_RETURN(SC_LOG_DEBUG_VERBOSE, SC_ERROR_INVALID_DATA);
 
     if (request->bMessageType != 0x63
             || request->dwLength != __constant_cpu_to_le32(0)
             || request->bSlot != 0
             || request->abRFU1 != 0
             || request->abRFU2 != 0)
-        sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "warning: malformed PC_to_RDR_IccPowerOff");
+        sc_debug(SC_LOG_DEBUG_NORMAL, "warning: malformed PC_to_RDR_IccPowerOff");
 
     //sc_reset(card, 1);
     //sc_result = sc_disconnect_card(card);
@@ -460,24 +461,24 @@ perform_PC_to_RDR_XfrBlock(const __u8 *in, size_t inlen, __u8** out, size_t *out
         return SC_ERROR_INVALID_ARGUMENTS;
 
     if (inlen < sizeof *request)
-        SC_FUNC_RETURN(ctx, SC_LOG_DEBUG_VERBOSE, SC_ERROR_INVALID_DATA);
+        SC_FUNC_RETURN(SC_LOG_DEBUG_VERBOSE, SC_ERROR_INVALID_DATA);
 
     if (request->bMessageType != 0x6F
             || request->bSlot != 0
             || request->bBWI  != 0)
-        sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "malformed PC_to_RDR_XfrBlock, will continue anyway");
+        sc_debug(SC_LOG_DEBUG_NORMAL, "malformed PC_to_RDR_XfrBlock, will continue anyway");
 
 	apdulen = __le32_to_cpu(request->dwLength);
 	if (inlen < apdulen+sizeof *request) {
-        sc_debug(ctx, SC_LOG_DEBUG_VERBOSE, "Not enough Data for APDU");
-        SC_FUNC_RETURN(ctx, SC_LOG_DEBUG_VERBOSE, SC_ERROR_INVALID_DATA);
+        sc_debug(SC_LOG_DEBUG_VERBOSE, "Not enough Data for APDU");
+        SC_FUNC_RETURN(SC_LOG_DEBUG_VERBOSE, SC_ERROR_INVALID_DATA);
 	}
 
-    sc_result = SC_SUCCESS; //TODO check malformed APDU sc_bytes2apdu(ctx, abDataIn, apdulen, &apdu);
+    sc_result = SC_SUCCESS; //TODO check malformed APDU sc_bytes2apdu(abDataIn, apdulen, &apdu);
     if (sc_result >= 0)
         sc_result = get_rapdu(abDataIn, apdulen, out, outlen);
     else
-        bin_log(ctx, SC_LOG_DEBUG_VERBOSE, "Invalid APDU", abDataIn,
+        bin_log(SC_LOG_DEBUG_VERBOSE, "Invalid APDU", abDataIn,
                 __le32_to_cpu(request->dwLength));
 
     sc_result = get_RDR_to_PC_DataBlock(request->bSeq, sc_result,
@@ -501,12 +502,12 @@ perform_PC_to_RDR_GetParamters(const __u8 *in, size_t inlen, __u8** out, size_t 
         return SC_ERROR_INVALID_ARGUMENTS;
 
     if (inlen < sizeof *request)
-        SC_FUNC_RETURN(ctx, SC_LOG_DEBUG_VERBOSE, SC_ERROR_INVALID_DATA);
+        SC_FUNC_RETURN(SC_LOG_DEBUG_VERBOSE, SC_ERROR_INVALID_DATA);
 
     if (request->bMessageType != 0x6C
             || request->dwLength != __constant_cpu_to_le32(0)
             || request->bSlot != 0)
-        sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "warning: malformed PC_to_RDR_GetParamters");
+        sc_debug(SC_LOG_DEBUG_NORMAL, "warning: malformed PC_to_RDR_GetParamters");
 
     switch (SC_PROTO_T0) {
         case SC_PROTO_T0:
@@ -618,19 +619,19 @@ get_RDR_to_PC_NotifySlotChange(RDR_to_PC_NotifySlotChange_t **out)
 
     sc_result = 0; // TODO
     if (sc_result < 0) {
-        sc_debug(ctx, SC_LOG_DEBUG_VERBOSE, "Could not detect card presence.");
+        sc_debug(SC_LOG_DEBUG_VERBOSE, "Could not detect card presence.");
         debug_sc_result(sc_result);
     }
 
     if (sc_result & SC_READER_CARD_PRESENT)
         result->bmSlotICCState |= present[0];
     if (sc_result & SC_READER_CARD_CHANGED) {
-        sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "Card status changed.");
+        sc_debug(SC_LOG_DEBUG_NORMAL, "Card status changed.");
         result->bmSlotICCState |= changed[0];
     }
 
     if ((oldmask & present[0]) != (result->bmSlotICCState & present[0])) {
-        sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "Card status changed.");
+        sc_debug(SC_LOG_DEBUG_NORMAL, "Card status changed.");
         result->bmSlotICCState |= changed[0];
     }
 
@@ -647,7 +648,7 @@ perform_unknown(const __u8 *in, size_t inlen, __u8 **out, size_t *outlen)
         return SC_ERROR_INVALID_ARGUMENTS;
 
     if (inlen < sizeof *request)
-        SC_FUNC_RETURN(ctx, SC_LOG_DEBUG_VERBOSE, SC_ERROR_INVALID_DATA);
+        SC_FUNC_RETURN(SC_LOG_DEBUG_VERBOSE, SC_ERROR_INVALID_DATA);
 
     result = realloc(*out, sizeof *result);
     if (!result)
@@ -680,7 +681,7 @@ perform_unknown(const __u8 *in, size_t inlen, __u8 **out, size_t *outlen)
             result->bMessageType = 0x84;
             break;
         default:
-            sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "Unknown message type in request (0x%02x). "
+            sc_debug(SC_LOG_DEBUG_NORMAL, "Unknown message type in request (0x%02x). "
                     "Using bMessageType=0x%02x for output.",
                     request->bMessageType, 0);
             result->bMessageType = 0;
@@ -705,36 +706,36 @@ int ccid_parse_bulkout(const __u8* inbuf, size_t inlen, __u8** outbuf)
     if (!inbuf)
         return 0;
 
-	bin_log(ctx, SC_LOG_DEBUG_VERBOSE, "CCID input", inbuf, inlen);
+	bin_log(SC_LOG_DEBUG_VERBOSE, "CCID input", inbuf, inlen);
 
     switch (*inbuf) {
         case 0x62: 
-                sc_debug(ctx, SC_LOG_DEBUG_NORMAL,  "PC_to_RDR_IccPowerOn");
+                sc_debug(SC_LOG_DEBUG_NORMAL,  "PC_to_RDR_IccPowerOn");
                 sc_result = perform_PC_to_RDR_IccPowerOn(inbuf, inlen, outbuf, &outlen);
                 break;
 
         case 0x63:
-                sc_debug(ctx, SC_LOG_DEBUG_NORMAL,  "PC_to_RDR_IccPowerOff");
+                sc_debug(SC_LOG_DEBUG_NORMAL,  "PC_to_RDR_IccPowerOff");
                 sc_result = perform_PC_to_RDR_IccPowerOff(inbuf, inlen, outbuf, &outlen);
                 break;
 
         case 0x65:
-                sc_debug(ctx, SC_LOG_DEBUG_NORMAL,  "PC_to_RDR_GetSlotStatus");
+                sc_debug(SC_LOG_DEBUG_NORMAL,  "PC_to_RDR_GetSlotStatus");
                 sc_result = perform_PC_to_RDR_GetSlotStatus(inbuf, inlen, outbuf, &outlen);
                 break;
 
         case 0x6F:
-                sc_debug(ctx, SC_LOG_DEBUG_NORMAL,  "PC_to_RDR_XfrBlock");
+                sc_debug(SC_LOG_DEBUG_NORMAL,  "PC_to_RDR_XfrBlock");
                 sc_result = perform_PC_to_RDR_XfrBlock(inbuf, inlen, outbuf, &outlen);
                 break;
 
         case 0x6C:
-                sc_debug(ctx, SC_LOG_DEBUG_NORMAL,  "PC_to_RDR_GetParameters");
+                sc_debug(SC_LOG_DEBUG_NORMAL,  "PC_to_RDR_GetParameters");
                 sc_result = perform_PC_to_RDR_GetParamters(inbuf, inlen, outbuf, &outlen);
                 break;
 
         default:
-                sc_debug(ctx, SC_LOG_DEBUG_VERBOSE, "Unknown ccid bulk-in message. "
+                sc_debug(SC_LOG_DEBUG_VERBOSE, "Unknown ccid bulk-in message. "
                         "Starting default handler...");
                 sc_result = perform_unknown(inbuf, inlen, outbuf, &outlen);
     }
@@ -763,18 +764,18 @@ int ccid_parse_control(struct usb_ctrlrequest *setup, __u8 **outbuf)
     if (setup->bRequestType == USB_REQ_CCID) {
         switch(setup->bRequest) {
             case CCID_CONTROL_ABORT:
-                sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "ABORT");
+                sc_debug(SC_LOG_DEBUG_NORMAL, "ABORT");
                 if (length != 0x00) {
-                    sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "warning: malformed ABORT");
+                    sc_debug(SC_LOG_DEBUG_NORMAL, "warning: malformed ABORT");
                 }
 
                 r = 0;
                 break;
 
             case CCID_CONTROL_GET_CLOCK_FREQUENCIES:
-                sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "GET_CLOCK_FREQUENCIES");
+                sc_debug(SC_LOG_DEBUG_NORMAL, "GET_CLOCK_FREQUENCIES");
                 if (value != 0x00) {
-                    sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "warning: malformed GET_CLOCK_FREQUENCIES");
+                    sc_debug(SC_LOG_DEBUG_NORMAL, "warning: malformed GET_CLOCK_FREQUENCIES");
                 }
 
                 r = sizeof(__le32);
@@ -790,9 +791,9 @@ int ccid_parse_control(struct usb_ctrlrequest *setup, __u8 **outbuf)
                 break;
 
             case CCID_CONTROL_GET_DATA_RATES:
-                sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "GET_DATA_RATES");
+                sc_debug(SC_LOG_DEBUG_NORMAL, "GET_DATA_RATES");
                 if (value != 0x00) {
-                    sc_debug(ctx, SC_LOG_DEBUG_NORMAL, "warning: malformed GET_DATA_RATES");
+                    sc_debug(SC_LOG_DEBUG_NORMAL, "warning: malformed GET_DATA_RATES");
                 }
 
                 r = sizeof (__le32);
@@ -808,7 +809,7 @@ int ccid_parse_control(struct usb_ctrlrequest *setup, __u8 **outbuf)
                 break;
 
             default:
-                sc_debug(ctx, SC_LOG_DEBUG_VERBOSE, "Unknown ccid control command.");
+                sc_debug(SC_LOG_DEBUG_VERBOSE, "Unknown ccid control command.");
 
                 r = SC_ERROR_NOT_SUPPORTED;
         }
